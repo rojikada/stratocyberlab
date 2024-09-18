@@ -15,6 +15,37 @@
 
     export let resize;
 
+    let isTerminalFocused = false;
+
+    function handleCtrlW(event) {
+        if (event.ctrlKey && event.key === 'w' && isTerminalFocused) {
+            event.preventDefault(); // Prevent browser tab close
+            terminal.write('\x17'); // propagate it to terminal
+        }
+    }
+
+    function addListenersToHandleCtrlW() {
+        terminalContainer.addEventListener('focus', () => {
+            isTerminalFocused = true;
+        });
+
+        terminalContainer.addEventListener('blur', () => {
+            isTerminalFocused = false;
+        });
+
+        window.addEventListener('keydown', handleCtrlW);
+    }
+
+    function deleteListenersToHandleCtrlW() {
+        window.removeEventListener('keydown', handleCtrlW);
+        terminalContainer.removeEventListener('focus', () => {
+            isTerminalFocused = true;
+        });
+        terminalContainer.removeEventListener('blur', () => {
+            isTerminalFocused = false;
+        });
+    }
+
     onMount(() => {
         terminal = new Terminal({
             cursorBlink: true,
@@ -42,6 +73,9 @@
             resize()
         });
 
+        // Prevent browser's Ctrl+W from closing the tab
+        window.addEventListener('keydown', handleCtrlW);
+
         const socket = io(`ws://${window.location.host}:8080/`, {
             path: '/socket.io',
             transports: ['websocket']
@@ -60,6 +94,8 @@
         terminal.onData(data => {
             socket.emit('ssh_input', data);
         });
+
+        addListenersToHandleCtrlW()
     });
 
 
@@ -70,6 +106,8 @@
     if (ws) {
       ws.close();
     }
+
+    deleteListenersToHandleCtrlW()
   });
 
   function hide(){
